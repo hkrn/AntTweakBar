@@ -70,10 +70,13 @@ Product {
     Properties {
         condition: !qbs.targetOS.contains("osx")
         files: commonFiles.concat([ "src/*.cpp" ])
+        excludeFiles: [ "src/TwDirect3D*" ]
     }
     Properties {
-        condition: qbs.targetOS.contains("windonws")
-        cpp.defines: [ "_WINDOWS" ]
+        condition: qbs.toolchain.contains("msvc")
+        cpp.cxxFlags: [ "/wd4819" ]
+        cpp.defines: [ "_WINDOWS", "TW_STATIC", "TW_NO_LIB_PRAGMA" ]
+        cpp.windowsApiCharacterSet: undefined
     }
     Properties {
         condition: qbs.targetOS.contains("unix") && !qbs.targetOS.contains("osx")
