@@ -28,6 +28,8 @@ using namespace std;
 extern const char *g_ErrCantLoadOGL;
 extern const char *g_ErrCantUnloadOGL;
 
+extern "C" std::string g_AntTweakShaderHeader = "#version 150 core";
+
 //  ---------------------------------------------------------------------------
 
 #ifdef _DEBUG
@@ -170,25 +172,36 @@ int CTwGraphOpenGLCore::Init()
 
     // Create line/rect shaders
     const GLchar *lineRectVS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ < 130\n"
+        "#define in attribute\n"
+        "#define out varying\n"
+        "#endif\n"
         "in vec3 vertex;"
         "in vec4 color;"
         "out vec4 fcolor;"
         "void main() { gl_Position = vec4(vertex, 1); fcolor = color; }"
     };
+    lineRectVS[0] = g_AntTweakShaderHeader.c_str();
     m_LineRectVS = _glCreateShader(GL_VERTEX_SHADER);
-    _glShaderSource(m_LineRectVS, 1, lineRectVS, NULL);
+    _glShaderSource(m_LineRectVS, 2, lineRectVS, NULL);
     CompileShader(m_LineRectVS);
 
     const GLchar *lineRectFS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ >= 130\n"
         "precision highp float;"
+        "out vec4 outColor;\n"
+        "#else\n"
+        "#define in varying\n"
+        "#define outColor gl_FragColor\n"
+        "#endif\n"
         "in vec4 fcolor;"
-        "out vec4 outColor;"
         "void main() { outColor = fcolor; }"
     };
+    lineRectFS[0] = g_AntTweakShaderHeader.c_str();
     m_LineRectFS = _glCreateShader(GL_FRAGMENT_SHADER);
-    _glShaderSource(m_LineRectFS, 1, lineRectFS, NULL);
+    _glShaderSource(m_LineRectFS, 2, lineRectFS, NULL);
     CompileShader(m_LineRectFS);
 
     m_LineRectProgram = _glCreateProgram();
@@ -212,7 +225,11 @@ int CTwGraphOpenGLCore::Init()
 
     // Create triangles shaders
     const GLchar *triVS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ < 130\n"
+        "#define in attribute\n"
+        "#define out varying\n"
+        "#endif\n"
         "uniform vec2 offset;"
         "uniform vec2 wndSize;"
         "in vec2 vertex;"
@@ -220,12 +237,17 @@ int CTwGraphOpenGLCore::Init()
         "out vec4 fcolor;"
         "void main() { gl_Position = vec4(2.0*(vertex.x+offset.x-0.5)/wndSize.x - 1.0, 1.0 - 2.0*(vertex.y+offset.y-0.5)/wndSize.y, 0, 1); fcolor = color; }"
     };
+    triVS[0] = g_AntTweakShaderHeader.c_str();
     m_TriVS = _glCreateShader(GL_VERTEX_SHADER);
-    _glShaderSource(m_TriVS, 1, triVS, NULL);
+    _glShaderSource(m_TriVS, 2, triVS, NULL);
     CompileShader(m_TriVS);
 
     const GLchar *triUniVS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ < 130\n"
+        "#define in attribute\n"
+        "#define out varying\n"
+        "#endif\n"
         "uniform vec2 offset;"
         "uniform vec2 wndSize;"
         "uniform vec4 color;"
@@ -233,8 +255,9 @@ int CTwGraphOpenGLCore::Init()
         "out vec4 fcolor;"
         "void main() { gl_Position = vec4(2.0*(vertex.x+offset.x-0.5)/wndSize.x - 1.0, 1.0 - 2.0*(vertex.y+offset.y-0.5)/wndSize.y, 0, 1); fcolor = color; }"
     };
+    triUniVS[0] = g_AntTweakShaderHeader.c_str();
     m_TriUniVS = _glCreateShader(GL_VERTEX_SHADER);
-    _glShaderSource(m_TriUniVS, 1, triUniVS, NULL);
+    _glShaderSource(m_TriUniVS, 2, triUniVS, NULL);
     CompileShader(m_TriUniVS);
 
     m_TriFS = m_TriUniFS = m_LineRectFS;
@@ -259,13 +282,19 @@ int CTwGraphOpenGLCore::Init()
     m_TriUniLocationColor = _glGetUniformLocation(m_TriUniProgram, "color");
 
     const GLchar *triTexFS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ >= 130\n"
         "precision highp float;"
+        "out vec4 outColor;\n"
+        "#else\n"
+        "#define in varying\n"
+        "#define outColor gl_FragColor\n"
+        "#define texture texture2D\n"
+        "#endif\n"
         "uniform sampler2D tex;"
         "in vec2 fuv;"
         "in vec4 fcolor;"
-        "out vec4 outColor;"
-// texture2D is deprecated and replaced by texture with GLSL 3.30 but it seems 
+// texture2D is deprecated and replaced by texture with GLSL 3.30 but it seems
 // that on Mac Lion backward compatibility is not ensured.
 #if defined(ANT_OSX) && (MAC_OS_X_VERSION_MAX_ALLOWED >= 1070)
         "void main() { outColor.rgb = fcolor.bgr; outColor.a = fcolor.a * texture(tex, fuv).r; }"
@@ -273,12 +302,17 @@ int CTwGraphOpenGLCore::Init()
         "void main() { outColor.rgb = fcolor.bgr; outColor.a = fcolor.a * texture2D(tex, fuv).r; }"
 #endif
     };
+    triTexFS[0] = g_AntTweakShaderHeader.c_str();
     m_TriTexFS = _glCreateShader(GL_FRAGMENT_SHADER);
-    _glShaderSource(m_TriTexFS, 1, triTexFS, NULL);
+    _glShaderSource(m_TriTexFS, 2, triTexFS, NULL);
     CompileShader(m_TriTexFS);
 
     const GLchar *triTexVS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ < 130\n"
+        "#define in attribute\n"
+        "#define out varying\n"
+        "#endif\n"
         "uniform vec2 offset;"
         "uniform vec2 wndSize;"
         "in vec2 vertex;"
@@ -288,12 +322,17 @@ int CTwGraphOpenGLCore::Init()
         "out vec4 fcolor;"
         "void main() { gl_Position = vec4(2.0*(vertex.x+offset.x-0.5)/wndSize.x - 1.0, 1.0 - 2.0*(vertex.y+offset.y-0.5)/wndSize.y, 0, 1); fuv = uv; fcolor = color; }"
     };
+    triTexVS[0] = g_AntTweakShaderHeader.c_str();
     m_TriTexVS = _glCreateShader(GL_VERTEX_SHADER);
-    _glShaderSource(m_TriTexVS, 1, triTexVS, NULL);
+    _glShaderSource(m_TriTexVS, 2, triTexVS, NULL);
     CompileShader(m_TriTexVS);
 
     const GLchar *triTexUniVS[] = {
-        "#version 150 core\n"
+        0,
+        "#if __VERSION__ < 130\n"
+        "#define in attribute\n"
+        "#define out varying\n"
+        "#endif\n"
         "uniform vec2 offset;"
         "uniform vec2 wndSize;"
         "uniform vec4 color;"
@@ -303,8 +342,9 @@ int CTwGraphOpenGLCore::Init()
         "out vec2 fuv;"
         "void main() { gl_Position = vec4(2.0*(vertex.x+offset.x-0.5)/wndSize.x - 1.0, 1.0 - 2.0*(vertex.y+offset.y-0.5)/wndSize.y, 0, 1); fuv = uv; fcolor = color; }"
     };
+    triTexUniVS[0] = g_AntTweakShaderHeader.c_str();
     m_TriTexUniVS = _glCreateShader(GL_VERTEX_SHADER);
-    _glShaderSource(m_TriTexUniVS, 1, triTexUniVS, NULL);
+    _glShaderSource(m_TriTexUniVS, 2, triTexUniVS, NULL);
     CompileShader(m_TriTexUniVS);
 
     m_TriTexUniFS = m_TriTexFS;
@@ -427,7 +467,7 @@ void CTwGraphOpenGLCore::BeginDraw(int _WndWidth, int _WndHeight)
 
     m_PrevCullFace = _glIsEnabled(GL_CULL_FACE);
     _glDisable(GL_CULL_FACE); CHECK_GL_ERROR;
-    
+
     m_PrevDepthTest = _glIsEnabled(GL_DEPTH_TEST);
     _glDisable(GL_DEPTH_TEST); CHECK_GL_ERROR;
 
@@ -450,7 +490,7 @@ void CTwGraphOpenGLCore::BeginDraw(int _WndWidth, int _WndHeight)
     m_PrevProgramObject = 0;
     _glGetIntegerv(GL_CURRENT_PROGRAM, (GLint*)&m_PrevProgramObject); CHECK_GL_ERROR;
     _glBindVertexArray(0); CHECK_GL_ERROR;
-    _glUseProgram(0); CHECK_GL_ERROR;  
+    _glUseProgram(0); CHECK_GL_ERROR;
 
     m_PrevActiveTexture = 0;
     _glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint*)&m_PrevActiveTexture); CHECK_GL_ERROR;
@@ -474,7 +514,7 @@ void CTwGraphOpenGLCore::EndDraw()
     }
     else
     {
-      _glDisable(GL_LINE_SMOOTH); CHECK_GL_ERROR;      
+      _glDisable(GL_LINE_SMOOTH); CHECK_GL_ERROR;
     }
 
     if( m_PrevCullFace )
@@ -483,7 +523,7 @@ void CTwGraphOpenGLCore::EndDraw()
     }
     else
     {
-      _glDisable(GL_CULL_FACE); CHECK_GL_ERROR;      
+      _glDisable(GL_CULL_FACE); CHECK_GL_ERROR;
     }
 
     if( m_PrevDepthTest )
@@ -492,7 +532,7 @@ void CTwGraphOpenGLCore::EndDraw()
     }
     else
     {
-      _glDisable(GL_DEPTH_TEST); CHECK_GL_ERROR;      
+      _glDisable(GL_DEPTH_TEST); CHECK_GL_ERROR;
     }
 
     if( m_PrevBlend )
@@ -501,7 +541,7 @@ void CTwGraphOpenGLCore::EndDraw()
     }
     else
     {
-      _glDisable(GL_BLEND); CHECK_GL_ERROR;      
+      _glDisable(GL_BLEND); CHECK_GL_ERROR;
     }
 
     if( m_PrevScissorTest )
@@ -510,7 +550,7 @@ void CTwGraphOpenGLCore::EndDraw()
     }
     else
     {
-      _glDisable(GL_SCISSOR_TEST); CHECK_GL_ERROR;      
+      _glDisable(GL_SCISSOR_TEST); CHECK_GL_ERROR;
     }
 
     _glScissor(m_PrevScissorBox[0], m_PrevScissorBox[1], m_PrevScissorBox[2], m_PrevScissorBox[3]); CHECK_GL_ERROR;
@@ -520,7 +560,7 @@ void CTwGraphOpenGLCore::EndDraw()
     _glBindTexture(GL_TEXTURE_2D, m_PrevTexture); CHECK_GL_ERROR;
 
     _glUseProgram(m_PrevProgramObject); CHECK_GL_ERROR;
-    
+
     _glBindVertexArray(m_PrevVArray); CHECK_GL_ERROR;
 
     _glViewport(m_PrevViewport[0], m_PrevViewport[1], m_PrevViewport[2], m_PrevViewport[3]); CHECK_GL_ERROR;
@@ -598,7 +638,7 @@ void CTwGraphOpenGLCore::DrawLine(int _X0, int _Y0, int _X1, int _Y1, color32 _C
 
     CHECK_GL_ERROR;
 }
-  
+
 //  ---------------------------------------------------------------------------
 
 void CTwGraphOpenGLCore::DrawRect(int _X0, int _Y0, int _X1, int _Y1, color32 _Color00, color32 _Color10, color32 _Color01, color32 _Color11)
@@ -762,7 +802,7 @@ void CTwGraphOpenGLCore::DrawText(void *_TextObj, int _X, int _Y, color32 _Color
         size_t numBgVerts = TextObj->m_BgVerts.size();
         if( numBgVerts > m_TriBufferSize )
             ResizeTriBuffers(numBgVerts + 2048);
-  
+
         _glBindVertexArray(m_TriVArray);
 
         _glBindBuffer(GL_ARRAY_BUFFER, m_TriVertices);
@@ -790,7 +830,7 @@ void CTwGraphOpenGLCore::DrawText(void *_TextObj, int _X, int _Y, color32 _Color
             _glUniform2f(m_TriUniLocationOffset, (float)_X, (float)_Y);
             _glUniform2f(m_TriUniLocationWndSize, (float)m_WndWidth, (float)m_WndHeight);
         }
-        
+
         _glDrawArrays(GL_TRIANGLES, 0, (GLsizei)TextObj->m_BgVerts.size());
     }
 
@@ -802,7 +842,7 @@ void CTwGraphOpenGLCore::DrawText(void *_TextObj, int _X, int _Y, color32 _Color
         size_t numTextVerts = TextObj->m_TextVerts.size();
         if( numTextVerts > m_TriBufferSize )
             ResizeTriBuffers(numTextVerts + 2048);
-        
+
         _glBindVertexArray(m_TriVArray);
         _glDisableVertexAttribArray(2);
 
@@ -836,7 +876,7 @@ void CTwGraphOpenGLCore::DrawText(void *_TextObj, int _X, int _Y, color32 _Color
             _glUniform2f(m_TriTexUniLocationWndSize, (float)m_WndWidth, (float)m_WndHeight);
             _glUniform1i(m_TriTexUniLocationTexture, 0);
         }
-        
+
         _glDrawArrays(GL_TRIANGLES, 0, (GLsizei)TextObj->m_TextVerts.size());
     }
 
@@ -906,7 +946,7 @@ void CTwGraphOpenGLCore::DrawTriangles(int _NumTriangles, int *_Vertices, color3
     size_t numVerts = 3*_NumTriangles;
     if( numVerts > m_TriBufferSize )
         ResizeTriBuffers(numVerts + 2048);
-  
+
     _glBindBuffer(GL_ARRAY_BUFFER, m_TriVertices);
     _glBufferSubData(GL_ARRAY_BUFFER, 0, numVerts*2*sizeof(int), _Vertices);
     _glVertexAttribPointer(0, 2, GL_INT, GL_FALSE, 0, NULL);
@@ -916,7 +956,7 @@ void CTwGraphOpenGLCore::DrawTriangles(int _NumTriangles, int *_Vertices, color3
     _glBufferSubData(GL_ARRAY_BUFFER, 0, numVerts*sizeof(color32), _Colors);
     _glVertexAttribPointer(1, GL_BGRA, GL_UNSIGNED_BYTE, GL_TRUE, 0, NULL);
     _glEnableVertexAttribArray(1);
-        
+
     _glDrawArrays(GL_TRIANGLES, 0, (GLsizei)numVerts);
 
     // Reset states
